@@ -1,9 +1,12 @@
-﻿using SampleProject.Entity;
+﻿using Newtonsoft.Json;
+using SampleProject.Entity;
 using SampleProject.Models;
 using System;
 using System.Collections.Generic;
 using System.Data.Entity;
 using System.Linq;
+using System.Net.Http;
+using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
 
@@ -40,15 +43,21 @@ namespace SampleProject.Controllers
             return RedirectToAction("BookList");
         }
 
-        public ActionResult BookList()
+        public async Task<ActionResult> BookList()
         {
             List<Book> booklist = new List<Book>();
-            var booksdata=db.tblBooks.ToList();
-            foreach (var item in booksdata)
-            {
-                booklist.Add(new Book { BookId=item.ID,BookName=item.BookName,BookAuthor=item.BookAuthor});
-            }
+            var client = new HttpClient();           
+            client.BaseAddress = new Uri("https://localhost:44360/");
+            client.DefaultRequestHeaders.Clear();
+            client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+            HttpResponseMessage res = await client.GetAsync("api/Book/GetBookList");
 
+            if(res.IsSuccessStatusCode)
+            {
+                var bookresponse = res.Content.ReadAsStringAsync().Result;
+                booklist = JsonConvert.DeserializeObject<List<Book>>(bookresponse);
+
+            }
             return View(booklist);
         }
         [HttpGet]
@@ -69,6 +78,13 @@ namespace SampleProject.Controllers
             Objbook.BookAuthor = book.BookAuthor;
             Objbook.BookName = book.BookName;
             db.Entry(Objbook).State= EntityState.Modified;
+            db.SaveChanges();
+            return RedirectToAction("BookList");
+        }
+        public ActionResult Delete(int id)
+        {
+            var Objbook = db.tblBooks.Where(x => x.ID == id).FirstOrDefault();
+            db.Entry(Objbook).State = EntityState.Deleted;
             db.SaveChanges();
             return RedirectToAction("BookList");
         }
